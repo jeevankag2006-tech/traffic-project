@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Traffic Dashboard</title>
+
+    <style>
+        body {
+            background: #e6e6e6;
+            font-family: Arial;
+            text-align: center;
+        }
+        
+        .container {
+            width: 90%;
+            margin: auto;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .card {
+            display: flex;
+            background: #ddd;
+            padding: 10px;
+            border-radius: 10px;
+            align-items: center;
+        }
+        
+        .light-box {
+            margin-right: 10px;
+        }
+        
+        .light {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin: 5px;
+            background: gray;
+            opacity: 0.3;
+        }
+        
+        .red.active {
+            background: red;
+            opacity: 1;
+        }
+        
+        .yellow.active {
+            background: orange;
+            opacity: 1;
+        }
+        
+        .green.active {
+            background: green;
+            opacity: 1;
+        }
+        
+        img {
+            width: 300px;
+            height: 180px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🚦 Live Traffic Dashboard</h1>
+
+    <div class="container">
+        <div class="grid">
+
+            {% for i in range(4) %}
+            <div class="card">
+
+                <div class="light-box">
+                    <div id="red{{i}}" class="light red"></div>
+                    <div id="yellow{{i}}" class="light yellow"></div>
+                    <div id="green{{i}}" class="light green"></div>
+                </div>
+
+                <video width="300" height="180" controls>
+                    <source src="/uploads/lane{{i+1}}.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+
+                <div>
+                    <p>Lane {{i+1}}</p>
+                    <p>Vehicles: <span id="count{{i}}">{{counts[i]}}</span></p>
+                    <p>Timer: <span id="timer{{i}}">0</span></p>
+                </div>
+
+            </div>
+            {% endfor %}
+
+        </div>
+    </div>
+
+    <script>
+        let counts = [0, 0, 0, 0];
+        let ambulances = [false, false, false, false];
+
+        let lanes = [0, 1, 2, 3];
+        let current = 0;
+
+        function getTime(c) {
+            if (c < 5) return 5;
+            if (c < 15) return 10;
+            return 15;
+        }
+
+        function red(i) {
+            return document.getElementById("red" + i);
+        }
+
+        function yellow(i) {
+            return document.getElementById("yellow" + i);
+        }
+
+        function green(i) {
+            return document.getElementById("green" + i);
+        }
+
+        function timer(i) {
+            return document.getElementById("timer" + i);
+        }
+
+        function reset() {
+            for (let i = 0; i < 4; i++) {
+                red(i).classList.remove("active");
+                yellow(i).classList.remove("active");
+                green(i).classList.remove("active");
+            }
+        }
+
+        function fetchData() {
+            fetch('/data')
+                .then(res => res.json())
+                .then(data => {
+                    counts = data.counts;
+                    ambulances = data.ambulances;
+
+                    for (let i = 0; i < 4; i++) {
+                        document.getElementById("count" + i).innerText = counts[i];
+                    }
+
+                    lanes = [0, 1, 2, 3];
+                    lanes.sort((a, b) => counts[b] - counts[a]);
+                });
+        }
+
+        setInterval(fetchData, 5000);
+
+        function run() {
+
+            for (let i = 0; i < 4; i++) {
+                if (ambulances[i]) {
+                    reset();
+                    green(i).classList.add("active");
+                    return;
+                }
+            }
+
+            let lane = lanes[current];
+
+            reset();
+            yellow(lane).classList.add("active");
+
+            setTimeout(() => {
+
+                reset();
+                green(lane).classList.add("active");
+
+                let t = getTime(counts[lane]);
+                timer(lane).innerText = t;
+
+                let interval = setInterval(() => {
+                    t--;
+                    timer(lane).innerText = t;
+
+                    if (t <= 0) {
+                        clearInterval(interval);
+                        current = (current + 1) % 4;
+                        run();
+                    }
+                }, 1000);
+
+            }, 2000);
+        }
+
+        fetchData();
+        run();
+    </script>
+
+</body>
+
+</html>
